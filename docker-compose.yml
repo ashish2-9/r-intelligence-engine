@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: r_intelligence_db
+    environment:
+      MYSQL_ROOT_PASSWORD: sit123
+      MYSQL_DATABASE: r
+      MYSQL_USER: root
+      MYSQL_PASSWORD: sit123
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+    networks:
+      - r_net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: r_intelligence_api
+    volumes:
+      - ./backend:/app
+    environment:
+      - MYSQL_URI=mysql+pymysql://r_user:r_password@db:3306/r_intelligence
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - r_net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: r_intelligence_web
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - r_net
+
+networks:
+  r_net:
+    driver: bridge
+
+volumes:
+  db_data:

@@ -1,0 +1,14 @@
+# Node/React (THIS IS THE CRUCIAL PART!)
+node_modules/
+frontend/node_modules/
+dist/
+
+# Python
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+backend/.env
