@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { dashboardData } from "../data/dummyData";
+import { API_BASE, getStoredUser } from "../api";
 
 const insights = [
   {
@@ -52,7 +54,60 @@ const circularOptions = [
 ];
 
 export default function DashboardPage() {
-  const data = dashboardData;
+  const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState("");
+
+  useEffect(() => {
+    const user = getStoredUser();
+    if (!user?.user_id) return;
+
+    fetch(`${API_BASE}/api/v1/users/${user.user_id}/monthly-summary`)
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error((await res.json().catch(() => ({}))).detail || "Unable to load monthly summary.");
+        }
+        return res.json();
+      })
+      .then((payload) => setSummary(payload))
+      .catch((err) => setSummaryError(err instanceof Error ? err.message : "Unable to load summary."));
+  }, []);
+
+  const data = summary
+    ? {
+        ecoEfficiencyScore: Math.round(summary.total_co2_saved_kg),
+        carbonPrevented: `${summary.total_co2_saved_kg.toFixed(1)} kg`,
+        energySaved: `${Math.max(0, Math.min(100, Math.round(summary.average_confidence_pct)))}%`,
+        circularRate: `${Math.round(((summary.primary_strategy_breakdown?.reuse || 0) + (summary.primary_strategy_breakdown?.reduce || 0)) / Math.max(1, summary.total_items) * 100)}%`,
+        categoryBreakdown: [
+          {
+            category: "Reduce / Reuse",
+            units: (summary.primary_strategy_breakdown?.reduce || 0) + (summary.primary_strategy_breakdown?.reuse || 0),
+            circularity: 95,
+            carbonDelta: `-${Math.round(summary.total_co2_saved_kg * 0.5)}kg`,
+            status: "OPTIMAL",
+          },
+          {
+            category: "Repair / Recycle",
+            units: (summary.primary_strategy_breakdown?.repair || 0) + (summary.primary_strategy_breakdown?.recycle || 0),
+            circularity: 70,
+            carbonDelta: `-${Math.round(summary.total_co2_saved_kg * 0.3)}kg`,
+            status: "GOOD",
+          },
+          {
+            category: "Recover",
+            units: summary.primary_strategy_breakdown?.recover || 0,
+            circularity: 40,
+            carbonDelta: `+${Math.round(summary.total_co2_saved_kg * 0.1)}kg`,
+            status: "ALERT",
+          },
+        ],
+        wasteAnalysis: {
+          recyclables: Math.min(100, Math.round(((summary.primary_strategy_breakdown?.recycle || 0) + (summary.primary_strategy_breakdown?.reuse || 0)) / Math.max(1, summary.total_items) * 100)),
+          compost: Math.min(100, Math.round((summary.primary_strategy_breakdown?.recover || 0) / Math.max(1, summary.total_items) * 100)),
+          landfill: Math.min(100, Math.round((summary.primary_strategy_breakdown?.repair || 0) / Math.max(1, summary.total_items) * 100)),
+        },
+      }
+    : dashboardData;
 
   return (
     <div className="max-w-5xl mx-auto">

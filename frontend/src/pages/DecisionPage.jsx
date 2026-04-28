@@ -1,9 +1,23 @@
 import { useNavigate } from "react-router-dom";
+import { getStoredAnalysis } from "../api";
 import { analysisResult } from "../data/dummyData";
 
 export default function DecisionPage() {
   const navigate = useNavigate();
-  const data = analysisResult;
+  const storedAnalysis = getStoredAnalysis();
+  const data = storedAnalysis || analysisResult;
+  const scoreRows = storedAnalysis
+    ? storedAnalysis.scores.map((item) => ({
+        label: item.strategy.replace(/_/g, " "),
+        impact: item.total >= 7 ? "High Impact" : item.total >= 4 ? "Moderate" : "Low Impact",
+        value: Math.round((item.total / 10) * 100),
+      }))
+    : Object.values(data.scores);
+  const ecoIndex = storedAnalysis ? Math.round((storedAnalysis.scores?.[0]?.total || 0) * 10) : data.ecoIndex;
+  const carbonSaved = storedAnalysis ? `${storedAnalysis.co2_saved_kg} kg` : data.carbonSaved;
+  const durability = storedAnalysis ? storedAnalysis.primary_strategy.toUpperCase() : data.durability;
+  const repairability = storedAnalysis ? `${Math.round(storedAnalysis.confidence_pct)}%` : data.repairability;
+  const savedLifetimeCO2 = storedAnalysis ? `${Math.round((storedAnalysis.co2_saved_kg || 0) * 5)} kg` : data.savedLifetimeCO2;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -30,7 +44,7 @@ export default function DecisionPage() {
           </div>
 
           <p className="text-sm text-stone-500 leading-relaxed">
-            {data.description}
+            {data.explanation || data.description}
           </p>
 
           {/* Eco Index Ring */}
@@ -41,12 +55,12 @@ export default function DecisionPage() {
                 <circle
                   cx="50" cy="50" r="40" fill="none"
                   stroke="#16a34a" strokeWidth="10"
-                  strokeDasharray={`${data.ecoIndex * 2.51} 251`}
+                  strokeDasharray={`${ecoIndex * 2.51} 251`}
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold text-stone-800">{data.ecoIndex}</span>
+                <span className="text-4xl font-bold text-stone-800">{ecoIndex}</span>
                 <span className="text-xs text-stone-400 uppercase tracking-wide">Eco-Index</span>
               </div>
             </div>
@@ -56,11 +70,11 @@ export default function DecisionPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-stone-50 rounded-xl p-3">
               <p className="text-xs text-stone-400">Durability</p>
-              <p className="text-lg font-bold text-stone-800">{data.durability}</p>
+              <p className="text-lg font-bold text-stone-800">{durability}</p>
             </div>
             <div className="bg-stone-50 rounded-xl p-3">
               <p className="text-xs text-stone-400">Repairability</p>
-              <p className="text-lg font-bold text-stone-800">{data.repairability}</p>
+              <p className="text-lg font-bold text-stone-800">{repairability}</p>
             </div>
           </div>
 
@@ -97,7 +111,7 @@ export default function DecisionPage() {
               <h4 className="font-semibold text-stone-700">Impact Breakdown</h4>
             </div>
             <div className="flex flex-col gap-4">
-              {Object.values(data.scores).map((score) => (
+              {scoreRows.map((score) => (
                 <div key={score.label}>
                   <div className="flex justify-between text-xs text-stone-500 mb-1">
                     <span className="flex items-center gap-1">
@@ -124,7 +138,7 @@ export default function DecisionPage() {
 
             {/* Grades */}
             <div className="grid grid-cols-3 gap-2 mt-6">
-              {Object.entries(data.grades).map(([key, val]) => (
+              {Object.entries(data.grades || {}).map(([key, val]) => (
                 <div key={key} className="text-center">
                   <p className="text-2xl font-bold text-stone-800">{val}</p>
                   <p className="text-xs text-stone-400 uppercase">{key}</p>
@@ -158,7 +172,7 @@ export default function DecisionPage() {
           {/* Saved CO2 */}
           <div className="bg-stone-50 rounded-xl p-4 mt-2">
             <p className="text-xs text-stone-400 uppercase tracking-wide">Saved Lifetime CO2</p>
-            <p className="text-3xl font-bold text-stone-800 mt-1">{data.savedLifetimeCO2}</p>
+            <p className="text-3xl font-bold text-stone-800 mt-1">{savedLifetimeCO2}</p>
             <p className="text-xs text-green-600 mt-1">↑ 12% higher than prev model</p>
           </div>
 

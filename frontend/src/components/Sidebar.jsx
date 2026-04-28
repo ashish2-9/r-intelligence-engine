@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 const navItems = [
   { path: "/analyze",      label: "Analyze Item",     icon: "🔍" },
@@ -9,6 +9,8 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-stone-200 flex flex-col py-6 px-3 shrink-0">
       <div className="flex items-center gap-2 px-3 mb-8">
@@ -39,7 +41,10 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="mt-auto px-3">
-        <button className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+        <button
+          onClick={() => navigate("/analyze")}
+          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+        >
           + New Analysis
         </button>
       </div>

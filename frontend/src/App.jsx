@@ -8,22 +8,34 @@ import AlternativesPage from "./pages/AlternativesPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import { getStoredUser, setStoredUser, clearStoredUser } from "./api";
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(() => getStoredUser());
+  const isLoggedIn = Boolean(user);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setStoredUser(userData);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    clearStoredUser();
+  };
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={
-          isLoggedIn ? <Navigate to="/analyze" replace /> : <LoginPage onLogin={() => setIsLoggedIn(true)} />
+          isLoggedIn ? <Navigate to="/analyze" replace /> : <LoginPage onLogin={handleLogin} />
         } />
         <Route path="/signup" element={
-          isLoggedIn ? <Navigate to="/analyze" replace /> : <SignupPage onLogin={() => setIsLoggedIn(true)} />
+          isLoggedIn ? <Navigate to="/analyze" replace /> : <SignupPage onLogin={handleLogin} />
         } />
         <Route
           path="/"
-          element={isLoggedIn ? <AppLayout onLogout={() => setIsLoggedIn(false)} /> : <Navigate to="/login" replace />}
+          element={isLoggedIn ? <AppLayout onLogout={handleLogout} /> : <Navigate to="/login" replace />}
         >
           <Route index element={<Navigate to="/analyze" replace />} />
           <Route path="analyze" element={<AnalyzePage />} />

@@ -1,10 +1,36 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FormCard from "../components/FormCard";
+import { API_BASE, getStoredUser, setStoredAnalysis } from "../api";
 
-const itemTypes = ["Chair", "Container", "Textile", "Electronics", "Packaging", "Other"];
-const conditions = ["Like New", "Good", "Fair", "Poor", "Damaged"];
-const contexts = ["Home Use", "Office", "Industrial", "Retail", "Education"];
+const itemTypes = [
+  { value: "pet_plastic", label: "PET Plastic" },
+  { value: "hdpe_plastic", label: "HDPE Plastic" },
+  { value: "mixed_plastic", label: "Mixed/Film Plastic" },
+  { value: "glass", label: "Glass" },
+  { value: "aluminium", label: "Aluminium" },
+  { value: "steel", label: "Steel/Tin" },
+  { value: "electronic", label: "Electronic Composite" },
+  { value: "textile", label: "Textile/Fabric" },
+  { value: "organic", label: "Organic/Food" },
+  { value: "paper", label: "Paper/Cardboard" },
+];
+const conditions = [
+  { value: "new", label: "New" },
+  { value: "good", label: "Good" },
+  { value: "used", label: "Used" },
+  { value: "damaged", label: "Damaged" },
+  { value: "broken", label: "Broken" },
+  { value: "contaminated", label: "Contaminated" },
+  { value: "end_of_life", label: "End of Life" },
+];
+const contexts = [
+  { value: "home", label: "Home Use" },
+  { value: "office", label: "Office" },
+  { value: "industrial", label: "Industrial" },
+  { value: "retail", label: "Retail" },
+  { value: "education", label: "Education" },
+];
 
 export default function AnalyzePage() {
   const navigate = useNavigate();
@@ -18,6 +44,7 @@ export default function AnalyzePage() {
     image: null,
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -29,12 +56,47 @@ export default function AnalyzePage() {
     if (file) setForm((prev) => ({ ...prev, image: file }));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    setError("");
+    const user = getStoredUser();
+    if (!user?.user_id) {
+      setError("Please login before analyzing items.");
+      return;
+    }
+    if (!form.itemType || !form.condition || !form.region) {
+      setError("Please select item type, condition, and region before submitting.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/analyse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          material: form.itemType,
+          condition: form.condition,
+          description: `${form.itemType} in ${form.condition} condition from ${form.region}`,
+          has_recycling_facility: false,
+          has_repair_shop: form.context === "industrial",
+          is_industrial_context: form.context === "industrial",
+          location_code: form.region,
+        }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.detail || "Unable to analyze the item.");
+      }
+
+      setStoredAnalysis(body);
       navigate("/decision");
-    }, 1800);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to analyze the item. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -56,7 +118,9 @@ export default function AnalyzePage() {
             <select name="itemType" value={form.itemType} onChange={handleChange}
               className="border border-stone-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none">
               <option value="">Select Item Type</option>
-              {itemTypes.map((t) => <option key={t}>{t}</option>)}
+              {itemTypes.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -70,7 +134,9 @@ export default function AnalyzePage() {
             <select name="condition" value={form.condition} onChange={handleChange}
               className="border border-stone-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none">
               <option value="">Select Condition</option>
-              {conditions.map((c) => <option key={c}>{c}</option>)}
+              {conditions.map((condition) => (
+                <option key={condition.value} value={condition.value}>{condition.label}</option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -78,7 +144,9 @@ export default function AnalyzePage() {
             <select name="context" value={form.context} onChange={handleChange}
               className="border border-stone-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none">
               <option value="">Select Context</option>
-              {contexts.map((c) => <option key={c}>{c}</option>)}
+              {contexts.map((context) => (
+                <option key={context.value} value={context.value}>{context.label}</option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -117,6 +185,7 @@ export default function AnalyzePage() {
             )}
           </div>
         </div>
+        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
         <div className="mt-6 flex items-center justify-between">
           <p className="text-xs text-stone-400">🔒 <strong className="text-stone-600">Privacy Guaranteed</strong></p>
           <button onClick={handleSubmit} disabled={loading}

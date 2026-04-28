@@ -246,6 +246,17 @@ class PredictionResponse(BaseModel):
     intervention_tip:  str
 
 
+class MonthlySummaryResponse(BaseModel):
+    """Monthly aggregate summary for a user's sustainable analysis history."""
+    user_id:                     str
+    month:                       str
+    total_items:                 int
+    total_co2_saved_kg:          float
+    average_confidence_pct:      float
+    primary_strategy_breakdown:  dict[str, int]
+    circularity_pct:             float
+
+
 class HealthResponse(BaseModel):
     """Lightweight health-check response."""
     status:  str

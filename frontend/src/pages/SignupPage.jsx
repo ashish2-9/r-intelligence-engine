@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE, setStoredUser } from "../api";
 
 export default function SignupPage({ onLogin }) {
   const [form, setForm] = useState({
@@ -45,11 +46,33 @@ export default function SignupPage({ onLogin }) {
     if (!form.agreed) {
       setError("Please agree to the Terms & Conditions."); return;
     }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    onLogin?.();
-    navigate("/analyze");
-    setLoading(false);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: form.fullName.trim(),
+          username: form.username.trim(),
+          email: form.email.trim(),
+          password: form.password,
+        }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.detail || "Unable to create account.");
+      }
+
+      setStoredUser(body.user);
+      onLogin?.(body.user);
+      navigate("/analyze");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

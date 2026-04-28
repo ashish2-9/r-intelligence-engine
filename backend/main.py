@@ -21,6 +21,7 @@ from datetime import datetime
 import httpx
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from Config import get_settings
@@ -30,7 +31,7 @@ from Database import (
 )
 from Feasibilty import run_feasibility_filter
 from Model import (
-    AnalyseItemRequest, DecisionResponse, HealthResponse,
+    AnalyseItemRequest, DecisionResponse, MonthlySummaryResponse, HealthResponse,
     RStrategy, RScore, AlternativeOption, MaterialType,
     LoginRequest, SignupRequest, AuthResponse, UserResponse
 )
@@ -129,7 +130,7 @@ async def signup(request: SignupRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/v1/auth/login", response_model=AuthResponse, tags=["Auth"])
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter((User.email == request.email) | (User.username == request.email)).first()
     if not user or user.password_hash != hash_password(request.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
         
@@ -465,6 +466,60 @@ async def get_behavioral_nudge(user_id: str):
         "pattern_detected": True,
         "material_counts": {"plastic": 12, "electronic": 5, "glass": 6}
     }
+
+
+# ---------------------------------------------------------------------------
+# Monthly summary endpoint
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/users/{user_id}/monthly-summary", response_model=MonthlySummaryResponse, tags=["User"])
+async def get_monthly_summary(user_id: str, db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+
+    total_items = (
+        db.query(func.count(Decision.decision_id))
+          .join(UserItem)
+          .filter(UserItem.user_id == user_id, Decision.created_at >= month_start)
+          .scalar() or 0
+    )
+
+    total_co2_saved = (
+        db.query(func.sum(Decision.co2_saved_kg))
+          .join(UserItem)
+          .filter(UserItem.user_id == user_id, Decision.created_at >= month_start)
+          .scalar() or 0.0
+    )
+
+    average_confidence = (
+        db.query(func.avg(Decision.confidence_pct))
+          .join(UserItem)
+          .filter(UserItem.user_id == user_id, Decision.created_at >= month_start)
+          .scalar() or 0.0
+    )
+
+    strategy_rows = (
+        db.query(Decision.primary_strategy, func.count(Decision.decision_id))
+          .join(UserItem)
+          .filter(UserItem.user_id == user_id, Decision.created_at >= month_start)
+          .group_by(Decision.primary_strategy)
+          .all()
+    )
+
+    strategy_breakdown = {strategy: count for strategy, count in strategy_rows}
+    item_count = int(total_items)
+    co2_saved = float(total_co2_saved or 0.0)
+    confidence_pct = float(average_confidence or 0.0)
+    circularity_pct = min(100.0, ((strategy_breakdown.get("reuse", 0) + strategy_breakdown.get("reduce", 0)) / max(item_count, 1)) * 100.0)
+
+    return MonthlySummaryResponse(
+        user_id=user_id,
+        month=month_start.strftime("%Y-%m"),
+        total_items=item_count,
+        total_co2_saved_kg=co2_saved,
+        average_confidence_pct=confidence_pct,
+        primary_strategy_breakdown=strategy_breakdown,
+        circularity_pct=round(circularity_pct, 1),
+    )
 
 
 # ---------------------------------------------------------------------------

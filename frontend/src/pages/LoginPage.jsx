@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE, setStoredUser } from "../api";
 
 export default function LoginPage({ onLogin }) {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -20,15 +21,28 @@ export default function LoginPage({ onLogin }) {
       setError("Please fill in all fields.");
       return;
     }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    if (form.email === "admin@r-intelligence.com" && form.password === "password123") {
-      onLogin?.();
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim(), password: form.password }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.detail || "Invalid email or password.");
+      }
+
+      setStoredUser(body.user);
+      onLogin?.(body.user);
       navigate("/analyze");
-    } else {
-      setError("Invalid email or password.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to log in. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
