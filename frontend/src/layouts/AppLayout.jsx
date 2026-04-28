@@ -10,7 +10,7 @@ const pageTitles = {
   "/dashboard":    "Impact Dashboard",
 };
 
-export default function AppLayout() {
+export default function AppLayout({ onLogout }) {
   const location = useLocation();
   const title = pageTitles[location.pathname] || "R-Intelligence";
 
@@ -18,7 +18,7 @@ export default function AppLayout() {
     <div className="flex h-screen overflow-hidden bg-stone-50">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Navbar title={title} />
+        <Navbar title={title} onLogout={onLogout} />
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>

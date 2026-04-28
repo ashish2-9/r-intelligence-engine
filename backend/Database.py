@@ -119,6 +119,10 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(String(255), primary_key=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)
+    username = Column(String(255), unique=True, nullable=True, index=True)
+    full_name = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=True)
     sustainability_score = Column(Float, nullable=False, default=0.0)
 
     items = relationship("UserItem", back_populates="user")

@@ -31,7 +31,8 @@ from Database import (
 from Feasibilty import run_feasibility_filter
 from Model import (
     AnalyseItemRequest, DecisionResponse, HealthResponse,
-    RStrategy, RScore, AlternativeOption, MaterialType
+    RStrategy, RScore, AlternativeOption, MaterialType,
+    LoginRequest, SignupRequest, AuthResponse, UserResponse
 )
 from services.kaggle_detector import detect_material
 from services.indian_context import parse_local_slang
@@ -88,6 +89,75 @@ def health_check():
         version=settings.APP_VERSION,
         db_ok=check_db_connection()
     )
+
+
+# ---------------------------------------------------------------------------
+# Authentication endpoints (Added for Frontend Login UI)
+# ---------------------------------------------------------------------------
+import hashlib
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+@app.post("/api/v1/auth/signup", response_model=AuthResponse, tags=["Auth"])
+async def signup(request: SignupRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter((User.email == request.email) | (User.username == request.username)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email or username already exists")
+    
+    new_user = User(
+        user_id=str(uuid.uuid4()),
+        email=request.email,
+        username=request.username,
+        full_name=request.fullName,
+        password_hash=hash_password(request.password),
+        sustainability_score=0.0
+    )
+    db.add(new_user)
+    db.commit()
+    
+    token = str(uuid.uuid4())
+    return AuthResponse(
+        token=token,
+        user=UserResponse(
+            user_id=new_user.user_id,
+            fullName=new_user.full_name,
+            username=new_user.username,
+            email=new_user.email
+        )
+    )
+
+@app.post("/api/v1/auth/login", response_model=AuthResponse, tags=["Auth"])
+async def login(request: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user or user.password_hash != hash_password(request.password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+    token = str(uuid.uuid4())
+    return AuthResponse(
+        token=token,
+        user=UserResponse(
+            user_id=user.user_id,
+            fullName=user.full_name,
+            username=user.username,
+            email=user.email
+        )
+    )
+
+@app.get("/api/v1/auth/google", tags=["Auth"])
+async def google_auth():
+    # In a real app, this redirects to Google's OAuth consent screen
+    return {"message": "Redirecting to Google OAuth..."}
+
+@app.get("/api/v1/auth/facebook", tags=["Auth"])
+async def facebook_auth():
+    # In a real app, this redirects to Facebook's OAuth consent screen
+    return {"message": "Redirecting to Facebook OAuth..."}
+
+@app.post("/api/v1/auth/logout", tags=["Auth"])
+async def logout():
+    # In a real app, you would invalidate the session/token here
+    return {"message": "Logged out successfully"}
 
 
 # ---------------------------------------------------------------------------

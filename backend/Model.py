@@ -112,6 +112,17 @@ class AnalyseItemRequest(BaseModel):
         return v.strip()
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class SignupRequest(BaseModel):
+    fullName: str
+    username: str
+    email: str
+    password: str
+
+
 # =============================================================================
 # INTERNAL / ENGINE SCHEMAS (not exposed directly to the API caller)
 # =============================================================================
@@ -213,6 +224,17 @@ class BehavioralNudgeResponse(BaseModel):
     nudge:    Optional[str]
     pattern_detected: bool
     material_counts:  dict[str, int]
+
+
+class UserResponse(BaseModel):
+    user_id: str
+    fullName: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserResponse
 
 
 class PredictionResponse(BaseModel):
